@@ -9,14 +9,10 @@ class CASClient(object):
         self,
         server_url,
         service_url=None,
-        proxy_url=None,
-        proxy_callback_url=None,
         auth_prefix='/cas',
         verify_certificates=False,
         ):
         self.auth_prefix = auth_prefix
-        self.proxy_url = proxy_url
-        self.proxy_callback_url = proxy_callback_url
         self.server_url = server_url
         self.service_url = service_url
         self.verify_certificates = bool(verify_certificates)
@@ -85,8 +81,6 @@ class CASResponse(object):
             self.error = cas_data
         self.user = self.data.get('user')
         self.attributes = self.data.get('attributes')
-        self.proxy_granting_ticket = self.data.get('proxyGrantingTicket')
-        self.proxy_ticket = self.data.get('proxyTicket')
 
     @classmethod
     def _parse_cas_xml_response(cls, response_text):
