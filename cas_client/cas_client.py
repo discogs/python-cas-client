@@ -52,18 +52,18 @@ class CASClient(object):
             )
 
     def _perform_cas_call(self, url, ticket):
-        cas_type, cas_data = None, {}
         if ticket is not None:
             response = self._request_cas_response(url)
-            cas_type, cas_data = self._parse_cas_xml_response(response)
-        return cas_type, cas_data
+            if response:
+                return CASResponse(response.text)
+        return None
 
     def _request_cas_response(self, url):
         try:
             response = requests.get(url, verify=self.verify_certificates)
             return response.text
         except requests.HTTPError:
-            pass
+            return None
 
 
 class CASResponse(object):
