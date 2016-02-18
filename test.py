@@ -41,10 +41,8 @@ class TestCase(unittest.TestCase):
         self.assertEqual(response.response_type, 'noResponse')
 
     def test_round_trip(self):
-        class DummyResponse(object):
-            text = self.response_text
         cas_client = CASClient('dummy.url')
-        cas_client._request_cas_response = lambda url: DummyResponse()
+        cas_client._request_cas_response = lambda url: self.response_text
         response = cas_client.perform_service_validate(
             ticket='FOO',
             service_url='BAR',

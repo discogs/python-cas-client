@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+import logging
 import requests
 from xml.dom.minidom import parseString
 
@@ -21,22 +22,27 @@ class CASClient(object):
 
     def get_login_url(self, service_url=None):
         template = '{server_url}{auth_prefix}/login?service={service_url}'
-        return template.format(
+        url = template.format(
             server_url=self.server_url,
             auth_prefix=self.auth_prefix,
             service_url=service_url or self.service_url,
             )
+        logging.debug('[CAS] Login URL: {}'.format(url))
+        return url
 
     def get_logout_url(self, service_url=None):
         template = '{server_url}{auth_prefix}/logout?service={service_url}'
-        return template.format(
+        url = template.format(
             server_url=self.server_url,
             auth_prefix=self.auth_prefix,
             service_url=service_url or self.service_url,
             )
+        logging.debug('[CAS] Logout URL: {}'.format(url))
+        return url
 
     def perform_service_validate(self, ticket=None, service_url=None):
         url = self._get_service_validate_url(ticket, service_url=service_url)
+        logging.debug('[CAS] ServiceValidate URL: {}'.format(url))
         return self._perform_cas_call(url, ticket=ticket)
 
     ### PRIVATE METHODS ###
@@ -44,19 +50,32 @@ class CASClient(object):
     def _get_service_validate_url(self, ticket, service_url=None):
         template = '{server_url}{auth_prefix}/serviceValidate?'
         template += 'ticket={ticket}&service={service_url}'
-        return template.format(
+        url = template.format(
             server_url=self.server_url,
             auth_prefix=self.auth_prefix,
             ticket=ticket,
             service_url=service_url or self.service_url,
             )
+        return url
 
     def _perform_cas_call(self, url, ticket):
         if ticket is not None:
-            response = self._request_cas_response(url)
-            if response:
-                return CASResponse(response.text)
+            logging.debug('[CAS] Requesting Ticket Validation')
+            response_text = self._request_cas_response(url)
+            response_text = self._clean_up_response_text(response_text)
+            if response_text:
+                logging.debug('[CAS] Response:\n{}'.format(response_text))
+                return CASResponse(response_text)
+        logging.debug('[CAS] Response: None')
         return None
+
+    def _clean_up_response_text(self, response_text):
+        lines = []
+        for line in response_text.splitlines():
+            line = line.rstrip()
+            if line:
+                lines.append(line)
+        return '\n'.join(lines)
 
     def _request_cas_response(self, url):
         try:
