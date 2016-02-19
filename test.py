@@ -40,7 +40,7 @@ class TestCase(unittest.TestCase):
         self.assertFalse(response.success)
         self.assertEqual(response.response_type, 'noResponse')
 
-    def test_round_trip(self):
+    def test_perform_service_validate(self):
         cas_client = CASClient('dummy.url')
         cas_client._request_cas_response = lambda url: self.response_text
         response = cas_client.perform_service_validate(
@@ -58,3 +58,15 @@ class TestCase(unittest.TestCase):
         })
         self.assertEqual(response.response_type, 'authenticationSuccess')
         self.assertEqual(response.user, 'jott')
+
+    def test_get_login_url(self):
+        cas_client = CASClient('dummy.url')
+        service_url = 'app.url'
+        url = cas_client.get_login_url(service_url=service_url)
+        self.assertEqual(url, 'dummy.url/cas/login?service=app.url')
+
+    def test_get_logout_url(self):
+        cas_client = CASClient('dummy.url')
+        service_url = 'app.url'
+        url = cas_client.get_logout_url(service_url=service_url)
+        self.assertEqual(url, 'dummy.url/cas/logout?service=app.url')
