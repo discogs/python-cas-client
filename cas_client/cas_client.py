@@ -11,9 +11,13 @@ class CASClient(object):
         server_url,
         service_url=None,
         auth_prefix='/cas',
+        proxy_url=None,
+        proxy_callback=None,
         verify_certificates=False,
         ):
         self.auth_prefix = auth_prefix
+        self.proxy_callback = proxy_callback
+        self.proxy_url = proxy_url
         self.server_url = server_url
         self.service_url = service_url
         self.verify_certificates = bool(verify_certificates)
@@ -40,6 +44,16 @@ class CASClient(object):
         logging.debug('[CAS] Logout URL: {}'.format(url))
         return url
 
+    def perform_proxy(self, proxy_ticket):
+        url = self._get_proxy_url(ticket=proxy_ticket)
+        logging.debug('[CAS] Proxy URL: {}'.format(url))
+        return self._perform_cas_call(url, ticket=proxy_ticket)
+
+    def perform_proxy_validate(self, proxied_service_ticket):
+        url = self._get_proxy_validate_url(ticket=proxied_service_ticket)
+        logging.debug('[CAS] ProxyValidate URL: {}'.format(url))
+        return self._perform_cas_call(url, ticket=proxied_service_ticket)
+
     def perform_service_validate(self, ticket=None, service_url=None):
         url = self._get_service_validate_url(ticket, service_url=service_url)
         logging.debug('[CAS] ServiceValidate URL: {}'.format(url))
@@ -47,15 +61,39 @@ class CASClient(object):
 
     ### PRIVATE METHODS ###
 
+    def _get_proxy_url(self, ticket):
+        template = '{server_url}{auth_prefix}/proxy?'
+        template += 'targetService={proxy_callback}&pgt={ticket}'
+        url = template.format(
+            auth_prefix=self.auth_prefix,
+            proxy_callback=self.proxy_callback,
+            server_url=self.server_url,
+            ticket=ticket,
+            )
+        return url
+
+    def _get_proxy_validate_url(self, ticket):
+        template = '{server_url}{auth_prefix}/proxy?'
+        template += 'ticket={ticket}&service={proxy_callback}'
+        url = template.format(
+            auth_prefix=self.auth_prefix,
+            proxy_callback=self.proxy_callback,
+            server_url=self.server_url,
+            ticket=ticket,
+            )
+        return url
+
     def _get_service_validate_url(self, ticket, service_url=None):
         template = '{server_url}{auth_prefix}/serviceValidate?'
         template += 'ticket={ticket}&service={service_url}'
         url = template.format(
-            server_url=self.server_url,
             auth_prefix=self.auth_prefix,
-            ticket=ticket,
+            server_url=self.server_url,
             service_url=service_url or self.service_url,
+            ticket=ticket,
             )
+        if self.proxy_url:
+            url = '{url}&pgtUrl={proxy_url}'.format(url, self.proxy_url)
         return url
 
     def _perform_cas_call(self, url, ticket):
