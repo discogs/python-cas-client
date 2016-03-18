@@ -275,21 +275,21 @@ class CASSessionAdapter(object):
 
 
 class MemcachedCASSessionAdapter(CASSessionAdapter):
-    r'''A Memcache session adapter.'''
+    r'''A Memcached session adapter.'''
 
-    def __init__(self, memcached_client):
-        self._memcached_client = memcached_client
+    def __init__(self, client):
+        self._client = client
 
     def create(self, ticket, payload=None, expires=None):
         if not payload:
             payload = True
-        self.memcached_client.set(str(ticket), payload, expires)
+        self._client.set(str(ticket), payload, expires)
 
     def delete(self, ticket):
-        self.memcached_client.delete(str(ticket))
+        self._client.delete(str(ticket))
 
     def exists(self, ticket):
-        return self.memcached_client.get(str(ticket)) is not None
+        return self._client.get(str(ticket)) is not None
 
 
 __all__ = [
