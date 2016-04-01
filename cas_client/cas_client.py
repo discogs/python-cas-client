@@ -1,8 +1,12 @@
 # -*- encoding: utf-8 -*-
 import abc
+import base64
 import json
 import logging
 import requests
+from Crypto.Hash import SHA256
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
 from xml.dom.minidom import parseString
 
 
@@ -28,6 +32,39 @@ class CASClient(object):
         self._verify_certificates = bool(verify_certificates)
 
     ### PUBLIC METHODS ###
+
+    def acquire_auth_token_ticket(self):
+        url = self._get_auth_token_tickets_url()
+        response = requests.post(url, verify=self.verify_certificates)
+        return json.loads(response.text)['ticket']
+
+    def get_auth_token_login_url(
+        self,
+        auth_token_ticket,
+        authenticator,
+        private_key_filepath,
+        service_url,
+        username,
+        ):
+        auth_token = json.dumps({
+            'authenticator': authenticator,
+            'username': username,
+            'ticket': auth_token_ticket,
+            })
+        with open(private_key_filepath, 'r') as file_pointer:
+            private_key = file_pointer.read()
+        rsa_key = RSA.importKey(private_key)
+        signer = PKCS1_v1_5.new(rsa_key)
+        digest = SHA256.new()
+        digest.update(auth_token)
+        auth_token_signature = signer.sign(digest)
+        auth_token = base64.b64encode(auth_token)
+        auth_token_signature = base64.b64encode(auth_token_signature)
+        return self._get_auth_token_login_url(
+            auth_token=auth_token,
+            auth_token_signature=auth_token_signature,
+            service_url=service_url,
+            )
 
     def get_login_url(self, service_url=None):
         r'''Get the URL for a remote CAS `login` endpoint.'''
@@ -112,6 +149,27 @@ class CASClient(object):
         return exists
 
     ### PRIVATE METHODS ###
+
+    def _get_auth_token_tickets_url(self):
+        template = '{server_url}{auth_prefix}/api/auth_token_tickets'
+        url = template.format(
+            auth_prefix=self.auth_prefix,
+            server_url=self.server_url,
+            )
+        return url
+
+    def _get_auth_token_login_url(self, auth_token, auth_token_signature, service_url):
+        template = '{server_url}{auth_prefix}/authTokenLogin?'
+        template += 'at={auth_token}&ats={auth_token_signature}&'
+        template += 'service={service_url}'
+        url = template.format(
+            auth_prefix=self.auth_prefix,
+            auth_token=auth_token,
+            auth_token_signature=auth_token_signature,
+            server_url=self.server_url,
+            service_url=service_url or self.service_url,
+            )
+        return url
 
     def _get_proxy_url(self, ticket):
         template = '{server_url}{auth_prefix}/proxy?'
