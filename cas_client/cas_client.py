@@ -9,6 +9,10 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from xml.dom.minidom import parseString
+try:
+    from urllib import urlencode
+except ImportError:
+    from urllib.parse import urlencode
 
 
 class CASClient(object):
@@ -169,15 +173,16 @@ class CASClient(object):
         return url
 
     def _get_auth_token_login_url(self, auth_token, auth_token_signature, service_url):
-        template = '{server_url}{auth_prefix}/authTokenLogin?'
-        template += 'at={auth_token}&ats={auth_token_signature}&'
-        template += 'service={service_url}'
+        template = '{server_url}{auth_prefix}/authTokenLogin?{query_string}'
+        query_string = urlencode({
+            'at': auth_token,
+            'ats': auth_token_signature,
+            'service': service_url or self.service_url,
+            })
         url = template.format(
             auth_prefix=self.auth_prefix,
-            auth_token=auth_token,
-            auth_token_signature=auth_token_signature,
+            query_string=query_string,
             server_url=self.server_url,
-            service_url=service_url or self.service_url,
             )
         return url
 
