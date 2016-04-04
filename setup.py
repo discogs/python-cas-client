@@ -3,6 +3,7 @@ import setuptools
 
 
 install_requires = [
+    'PyCrypto',
     'requests',
     'six',
     'tox',

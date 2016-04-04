@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import requests
+import six
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
@@ -34,9 +35,13 @@ class CASClient(object):
     ### PUBLIC METHODS ###
 
     def acquire_auth_token_ticket(self):
+        logging.debug('[CAS] Acquiring Auth token ticket')
         url = self._get_auth_token_tickets_url()
         response = requests.post(url, verify=self.verify_certificates)
-        return json.loads(response.text)['ticket']
+        auth_token_ticket = json.loads(response.text)['ticket']
+        logging.debug('[CAS] Acquire Auth token ticket: {}'.format(
+            auth_token_ticket))
+        return auth_token_ticket
 
     def get_auth_token_login_url(
         self,
@@ -51,20 +56,25 @@ class CASClient(object):
             'username': username,
             'ticket': auth_token_ticket,
             })
+        logging.debug('[CAS] AuthToken: {}'.format(auth_token))
         with open(private_key_filepath, 'r') as file_pointer:
             private_key = file_pointer.read()
         rsa_key = RSA.importKey(private_key)
         signer = PKCS1_v1_5.new(rsa_key)
         digest = SHA256.new()
+        if six.PY3:
+            auth_token = auth_token.encode('utf-8')
         digest.update(auth_token)
         auth_token_signature = signer.sign(digest)
         auth_token = base64.b64encode(auth_token)
         auth_token_signature = base64.b64encode(auth_token_signature)
-        return self._get_auth_token_login_url(
+        url = self._get_auth_token_login_url(
             auth_token=auth_token,
             auth_token_signature=auth_token_signature,
             service_url=service_url,
             )
+        logging.debug('[CAS] AuthToken Login URL: {}'.format(url))
+        return url
 
     def get_login_url(self, service_url=None):
         r'''Get the URL for a remote CAS `login` endpoint.'''
