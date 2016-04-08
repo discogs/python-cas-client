@@ -33,6 +33,18 @@ class TestCase(unittest.TestCase):
     </samlp:LogoutRequest>
     """
 
+    slo_text_2 = """
+    <samlp:LogoutRequest
+        xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+        xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+        ID="935a2d0c-4026-481e-be3d-20a1b2cdd553"
+        Version="2.0"
+        IssueInstant="2016-04-08 00:40:55 +0000">
+        <saml:NameID>@NOT_USED@</saml:NameID>
+        <samlp:SessionIndex>ST-14600760351898-0B3lSFt2jOWSbgQ377B4CtbD9uq0MXR9kG23vAuH</samlp:SessionIndex>
+    </samlp:LogoutRequest>
+    """
+
     def test_success(self):
         response = CASResponse(self.response_text)
         self.assertTrue(response.success)
@@ -91,6 +103,18 @@ class TestCase(unittest.TestCase):
             'IssueInstant': '[CURRENT DATE/TIME]',
             'Version': '2.0',
             'session_index': '[SESSION IDENTIFIER]',
+            'xmlns:saml': 'urn:oasis:names:tc:SAML:2.0:assertion',
+            'xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
+        })
+
+    def test_parse_logout_request_2(self):
+        cas_client = CASClient('dummy.url')
+        parsed_message = cas_client.parse_logout_request(self.slo_text_2)
+        self.assertEqual(parsed_message, {
+            'ID': '935a2d0c-4026-481e-be3d-20a1b2cdd553',
+            'IssueInstant': '2016-04-08 00:40:55 +0000',
+            'Version': '2.0',
+            'session_index': 'ST-14600760351898-0B3lSFt2jOWSbgQ377B4CtbD9uq0MXR9kG23vAuH',
             'xmlns:saml': 'urn:oasis:names:tc:SAML:2.0:assertion',
             'xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
         })
