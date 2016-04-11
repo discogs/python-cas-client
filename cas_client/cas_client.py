@@ -16,7 +16,15 @@ except ImportError:
 
 
 class CASClient(object):
-    r'''A client for interacting with a remote CAS instance.'''
+    '''
+    A client for interacting with a remote CAS instance.
+
+    ::
+
+        >>> from cas_client import CASClient
+        >>> client = CASClient('https://logmein.com')
+
+    '''
 
     def __init__(
         self,
@@ -89,6 +97,15 @@ class CASClient(object):
     def get_login_url(self, service_url=None):
         '''
         Get the URL for a remote CAS `login` endpoint.
+
+        ::
+
+            >>> from cas_client import CASClient
+            >>> client = CASClient('https://logmein.com')
+            >>> service_url = 'http://myservice.net'
+            >>> client.get_login_url(service_url)
+            'https://logmein.com/cas/login?service=http://myservice.net'
+
         '''
         template = '{server_url}{auth_prefix}/login?service={service_url}'
         url = template.format(
@@ -102,6 +119,15 @@ class CASClient(object):
     def get_logout_url(self, service_url=None):
         '''
         Get the URL for a remote CAS `logout` endpoint.
+
+        ::
+
+            >>> from cas_client import CASClient
+            >>> client = CASClient('https://logmein.com')
+            >>> service_url = 'http://myservice.net'
+            >>> client.get_logout_url(service_url)
+            'https://logmein.com/cas/logout?service=http://myservice.net'
+
         '''
         template = '{server_url}{auth_prefix}/logout?service={service_url}'
         url = template.format(
@@ -139,6 +165,32 @@ class CASClient(object):
     def parse_logout_request(self, message_text):
         '''
         Parse the contents of a CAS `LogoutRequest` XML message.
+
+        ::
+
+            >>> from cas_client import CASClient
+            >>> client = CASClient('https://logmein.com')
+            >>> message_text = """
+            ... <samlp:LogoutRequest
+            ...     xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+            ...     xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+            ...     ID="935a2d0c-4026-481e-be3d-20a1b2cdd553"
+            ...     Version="2.0"
+            ...     IssueInstant="2016-04-08 00:40:55 +0000">
+            ...     <saml:NameID>@NOT_USED@</saml:NameID>
+            ...     <samlp:SessionIndex>ST-14600760351898-0B3lSFt2jOWSbgQ377B4CtbD9uq0MXR9kG23vAuH</samlp:SessionIndex>
+            ... </samlp:LogoutRequest>
+            ... """
+            >>> parsed_message = client.parse_logout_request(message_text)
+            >>> import pprint
+            >>> pprint.pprint(parsed_message)
+            {'ID': '935a2d0c-4026-481e-be3d-20a1b2cdd553',
+             'IssueInstant': '2016-04-08 00:40:55 +0000',
+             'Version': '2.0',
+             'session_index': 'ST-14600760351898-0B3lSFt2jOWSbgQ377B4CtbD9uq0MXR9kG23vAuH',
+             'xmlns:saml': 'urn:oasis:names:tc:SAML:2.0:assertion',
+             'xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol'}
+
         '''
         result = {}
         xml_document = parseString(message_text)
@@ -149,9 +201,9 @@ class CASClient(object):
         for node in xml_document.getElementsByTagName('samlp:SessionIndex'):
             for child in node.childNodes:
                 if child.nodeType == child.TEXT_NODE:
-                    result['session_index'] = child.nodeValue.strip()
+                    result['session_index'] = str(child.nodeValue.strip())
         for key in xml_document.documentElement.attributes.keys():
-            result[key] = xml_document.documentElement.getAttribute(key)
+            result[str(key)] = str(xml_document.documentElement.getAttribute(key))
         logging.debug('[CAS] LogoutRequest:\n{}'.format(
             json.dumps(result, sort_keys=True, indent=4, separators=[',', ': ']),
             ))
