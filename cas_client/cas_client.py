@@ -39,6 +39,9 @@ class CASClient(object):
     ### PUBLIC METHODS ###
 
     def acquire_auth_token_ticket(self):
+        '''
+        Acquire an auth token from the CAS server.
+        '''
         logging.debug('[CAS] Acquiring Auth token ticket')
         url = self._get_auth_token_tickets_url()
         response = requests.post(url, verify=self.verify_certificates)
@@ -51,18 +54,21 @@ class CASClient(object):
         self,
         auth_token_ticket,
         authenticator,
-        private_key_filepath,
+        private_key,
         service_url,
         username,
         ):
+        '''
+        Build an auth token login URL.
+
+        See https://github.com/rbCAS/CASino/wiki/Auth-Token-Login for details.
+        '''
         auth_token = json.dumps({
             'authenticator': authenticator,
             'username': username,
             'ticket': auth_token_ticket,
             })
         logging.debug('[CAS] AuthToken: {}'.format(auth_token))
-        with open(private_key_filepath, 'r') as file_pointer:
-            private_key = file_pointer.read()
         rsa_key = RSA.importKey(private_key)
         signer = PKCS1_v1_5.new(rsa_key)
         digest = SHA256.new()
@@ -81,7 +87,9 @@ class CASClient(object):
         return url
 
     def get_login_url(self, service_url=None):
-        r'''Get the URL for a remote CAS `login` endpoint.'''
+        '''
+        Get the URL for a remote CAS `login` endpoint.
+        '''
         template = '{server_url}{auth_prefix}/login?service={service_url}'
         url = template.format(
             server_url=self.server_url,
@@ -92,7 +100,9 @@ class CASClient(object):
         return url
 
     def get_logout_url(self, service_url=None):
-        r'''Get the URL for a remote CAS `logout` endpoint.'''
+        '''
+        Get the URL for a remote CAS `logout` endpoint.
+        '''
         template = '{server_url}{auth_prefix}/logout?service={service_url}'
         url = template.format(
             server_url=self.server_url,
@@ -103,25 +113,33 @@ class CASClient(object):
         return url
 
     def perform_proxy(self, proxy_ticket):
-        r'''Fetch a response from the remote CAS `proxy` endpoint.'''
+        '''
+        Fetch a response from the remote CAS `proxy` endpoint.
+        '''
         url = self._get_proxy_url(ticket=proxy_ticket)
         logging.debug('[CAS] Proxy URL: {}'.format(url))
         return self._perform_cas_call(url, ticket=proxy_ticket)
 
     def perform_proxy_validate(self, proxied_service_ticket):
-        r'''Fetch a response from the remote CAS `proxyValidate` endpoint.'''
+        '''
+        Fetch a response from the remote CAS `proxyValidate` endpoint.
+        '''
         url = self._get_proxy_validate_url(ticket=proxied_service_ticket)
         logging.debug('[CAS] ProxyValidate URL: {}'.format(url))
         return self._perform_cas_call(url, ticket=proxied_service_ticket)
 
     def perform_service_validate(self, ticket=None, service_url=None):
-        r'''Fetch a response from the remote CAS `serviceValidate` endpoint.'''
+        '''
+        Fetch a response from the remote CAS `serviceValidate` endpoint.
+        '''
         url = self._get_service_validate_url(ticket, service_url=service_url)
         logging.debug('[CAS] ServiceValidate URL: {}'.format(url))
         return self._perform_cas_call(url, ticket=ticket)
 
     def parse_logout_request(self, message_text):
-        r'''Parse the contents of a CAS `LogoutRequest` XML message.'''
+        '''
+        Parse the contents of a CAS `LogoutRequest` XML message.
+        '''
         result = {}
         xml_document = parseString(message_text)
         for node in xml_document.getElementsByTagName('saml:NameId'):
@@ -140,7 +158,9 @@ class CASClient(object):
         return result
 
     def create_session(self, ticket, payload=None, expires=None):
-        r'''Create a session record from a service ticket.'''
+        '''
+        Create a session record from a service ticket.
+        '''
         assert isinstance(self.session_storage_adapter, CASSessionAdapter)
         logging.debug('[CAS] Creating session for ticket {}'.format(ticket))
         self.session_storage_adapter.create(
@@ -150,13 +170,17 @@ class CASClient(object):
             )
 
     def delete_session(self, ticket):
-        r'''Delete a session record associated with a service ticket.'''
+        '''
+        Delete a session record associated with a service ticket.
+        '''
         assert isinstance(self.session_storage_adapter, CASSessionAdapter)
         logging.debug('[CAS] Deleting session for ticket {}'.format(ticket))
         self.session_storage_adapter.delete(ticket)
 
     def session_exists(self, ticket):
-        r'''Test if a session records exists for a service ticket.'''
+        '''
+        Test if a session records exists for a service ticket.
+        '''
         assert isinstance(self.session_storage_adapter, CASSessionAdapter)
         exists = self.session_storage_adapter.exists(ticket)
         logging.debug('[CAS] Session [{}] exists: {}'.format(ticket, exists))
@@ -251,34 +275,62 @@ class CASClient(object):
 
     @property
     def auth_prefix(self):
+        '''
+        The CAS client's auth prefix. Typically "/cas".
+        '''
         return self._auth_prefix
 
     @property
     def proxy_callback(self):
+        '''
+        The CAS client's proxy callback address.
+        '''
         return self._proxy_callback
 
     @property
     def proxy_url(self):
+        '''
+        The CAS client's proxy URL.
+        '''
         return self._proxy_url
 
     @property
     def server_url(self):
+        '''
+        The CAS client's CAS server URL (i.e. the server name of the CAS
+        service).
+        '''
         return self._server_url
 
     @property
     def service_url(self):
+        '''
+        The CAS client's default service URL.
+
+        This can typically be overriden in any method call.
+        '''
         return self._service_url
 
     @property
     def session_storage_adapter(self):
+        '''
+        The CAS client's session storage adapter for maintaining session state.
+        '''
         return self._session_storage_adapter
 
     @property
     def verify_certificates(self):
+        '''
+        Flag for controlling whether the CAS client verifies SSL certificates
+        in its ``requests`` calls.
+        '''
         return self._verify_certificates
 
 
 class CASResponse(object):
+    '''
+    A CAS response object.
+    '''
 
     def __init__(self, response_text):
         self.response_text = response_text
@@ -330,20 +382,31 @@ class CASResponse(object):
 
 
 class CASSessionAdapter(object):
-    r'''An abstract session adapter.'''
+    '''
+    Abstract base class for session adapters.
+    '''
 
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def create(self, ticket, payload=None, expires=None):
+        '''
+        Create a session identifier associated with ``ticket``.
+        '''
         raise NotImplementedError
 
     @abc.abstractmethod
     def delete(self, ticket):
+        '''
+        Destroy a session identifier associated with ``ticket``.
+        '''
         raise NotImplementedError
 
     @abc.abstractmethod
     def exists(self, ticket):
+        '''
+        Test if a session identifier exists for ``ticket``.
+        '''
         raise NotImplementedError
 
 
@@ -354,14 +417,23 @@ class MemcachedCASSessionAdapter(CASSessionAdapter):
         self._client = client
 
     def create(self, ticket, payload=None, expires=None):
+        '''
+        Create a session identifier in memcache associated with ``ticket``.
+        '''
         if not payload:
             payload = True
         self._client.set(str(ticket), payload, expires)
 
     def delete(self, ticket):
+        '''
+        Destroy a session identifier in memcache associated with ``ticket``.
+        '''
         self._client.delete(str(ticket))
 
     def exists(self, ticket):
+        '''
+        Test if a session identifier exists for ``ticket``.
+        '''
         return self._client.get(str(ticket)) is not None
 
 

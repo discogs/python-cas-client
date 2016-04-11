@@ -126,10 +126,12 @@ class TestCase(unittest.TestCase):
         username = 'my_user'
         service_url = 'example.com'
         private_key_filepath = 'test_private_key.pem'
+        with open(private_key_filepath, 'r') as file_pointer:
+            private_key = file_pointer.read()
         cas_client.get_auth_token_login_url(
             auth_token_ticket=auth_token_ticket,
             authenticator=authenticator,
-            private_key_filepath=private_key_filepath,
+            private_key=private_key,
             service_url=service_url,
             username=username,
             )
