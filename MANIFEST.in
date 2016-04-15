@@ -1,0 +1,9 @@
+include README.rst
+include LICENSE
+include requirements.txt
+include setup.py
+include MANIFEST.in
+include test*
+include tox.ini
+recursive-include cas_client *
+recursive-exclude cas_client *.pyc
