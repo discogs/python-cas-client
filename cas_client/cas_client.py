@@ -58,6 +58,26 @@ class CASClient(object):
             auth_token_ticket))
         return auth_token_ticket
 
+    def create_session(self, ticket, payload=None, expires=None):
+        '''
+        Create a session record from a service ticket.
+        '''
+        assert isinstance(self.session_storage_adapter, CASSessionAdapter)
+        logging.debug('[CAS] Creating session for ticket {}'.format(ticket))
+        self.session_storage_adapter.create(
+            ticket,
+            payload=payload,
+            expires=expires,
+            )
+
+    def delete_session(self, ticket):
+        '''
+        Delete a session record associated with a service ticket.
+        '''
+        assert isinstance(self.session_storage_adapter, CASSessionAdapter)
+        logging.debug('[CAS] Deleting session for ticket {}'.format(ticket))
+        self.session_storage_adapter.delete(ticket)
+
     def get_auth_token_login_url(
         self,
         auth_token_ticket,
@@ -92,6 +112,28 @@ class CASClient(object):
             service_url=service_url,
             )
         logging.debug('[CAS] AuthToken Login URL: {}'.format(url))
+        return url
+
+    def get_destroy_other_sessions_url(self, service_url=None):
+        '''
+        Get the URL for a remote CAS `destroy-other-sessions` endpoint.
+
+        ::
+
+            >>> from cas_client import CASClient
+            >>> client = CASClient('https://logmein.com')
+            >>> service_url = 'http://myservice.net'
+            >>> client.get_destroy_other_sessions_url(service_url)
+            'https://logmein.com/cas/destroy-other-sessions?service=http://myservice.net'
+
+        '''
+        template = '{server_url}{auth_prefix}/destroy-other-sessions?service={service_url}'
+        url = template.format(
+            server_url=self.server_url,
+            auth_prefix=self.auth_prefix,
+            service_url=service_url or self.service_url,
+            )
+        logging.debug('[CAS] Login URL: {}'.format(url))
         return url
 
     def get_login_url(self, service_url=None):
@@ -208,26 +250,6 @@ class CASClient(object):
             json.dumps(result, sort_keys=True, indent=4, separators=[',', ': ']),
             ))
         return result
-
-    def create_session(self, ticket, payload=None, expires=None):
-        '''
-        Create a session record from a service ticket.
-        '''
-        assert isinstance(self.session_storage_adapter, CASSessionAdapter)
-        logging.debug('[CAS] Creating session for ticket {}'.format(ticket))
-        self.session_storage_adapter.create(
-            ticket,
-            payload=payload,
-            expires=expires,
-            )
-
-    def delete_session(self, ticket):
-        '''
-        Delete a session record associated with a service ticket.
-        '''
-        assert isinstance(self.session_storage_adapter, CASSessionAdapter)
-        logging.debug('[CAS] Deleting session for ticket {}'.format(ticket))
-        self.session_storage_adapter.delete(ticket)
 
     def session_exists(self, ticket):
         '''

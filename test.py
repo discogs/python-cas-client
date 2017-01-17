@@ -83,6 +83,12 @@ class TestCase(unittest.TestCase):
         self.assertEqual(response.response_type, 'authenticationSuccess')
         self.assertEqual(response.user, 'jott')
 
+    def test_get_destroy_other_sessions_url(self):
+        cas_client = CASClient('dummy.url')
+        service_url = 'app.url'
+        url = cas_client.get_destroy_other_sessions_url(service_url=service_url)
+        self.assertEqual(url, 'dummy.url/cas/destroy-other-sessions?service=app.url')
+
     def test_get_login_url(self):
         cas_client = CASClient('dummy.url')
         service_url = 'app.url'
