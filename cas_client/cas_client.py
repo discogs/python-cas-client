@@ -52,8 +52,8 @@ class CASClient(object):
         '''
         logging.debug('[CAS] Acquiring Auth token ticket')
         url = self._get_auth_token_tickets_url()
-        response = requests.post(url, verify=self.verify_certificates)
-        auth_token_ticket = json.loads(response.text)['ticket']
+        text = self._perform_post(url)
+        auth_token_ticket = json.loads(text)['ticket']
         logging.debug('[CAS] Acquire Auth token ticket: {}'.format(
             auth_token_ticket))
         return auth_token_ticket
@@ -91,21 +91,26 @@ class CASClient(object):
 
         See https://github.com/rbCAS/CASino/wiki/Auth-Token-Login for details.
         '''
+        rsa_key = RSA.importKey(private_key)
+        signer = PKCS1_v1_5.new(rsa_key)
+
         auth_token = json.dumps({
             'authenticator': authenticator,
             'username': username,
             'ticket': auth_token_ticket,
             })
-        logging.debug('[CAS] AuthToken: {}'.format(auth_token))
-        rsa_key = RSA.importKey(private_key)
-        signer = PKCS1_v1_5.new(rsa_key)
-        digest = SHA256.new()
         if six.PY3:
             auth_token = auth_token.encode('utf-8')
+
+        logging.debug('[CAS] AuthToken: {}'.format(auth_token))
+
+        digest = SHA256.new()
         digest.update(auth_token)
-        auth_token_signature = signer.sign(digest)
         auth_token = base64.b64encode(auth_token)
+
+        auth_token_signature = signer.sign(digest)
         auth_token_signature = base64.b64encode(auth_token_signature)
+
         url = self._get_auth_token_login_url(
             auth_token=auth_token,
             auth_token_signature=auth_token_signature,
@@ -262,6 +267,14 @@ class CASClient(object):
 
     ### PRIVATE METHODS ###
 
+    def _clean_up_response_text(self, response_text):
+        lines = []
+        for line in response_text.splitlines():
+            line = line.rstrip()
+            if line:
+                lines.append(line)
+        return '\n'.join(lines)
+
     def _get_auth_token_tickets_url(self):
         template = '{server_url}{auth_prefix}/api/auth_token_tickets'
         url = template.format(
@@ -322,7 +335,7 @@ class CASClient(object):
     def _perform_cas_call(self, url, ticket):
         if ticket is not None:
             logging.debug('[CAS] Requesting Ticket Validation')
-            response_text = self._request_cas_response(url)
+            response_text = self._perform_get(url)
             response_text = self._clean_up_response_text(response_text)
             if response_text:
                 logging.debug('[CAS] Response:\n{}'.format(response_text))
@@ -330,17 +343,16 @@ class CASClient(object):
         logging.debug('[CAS] Response: None')
         return None
 
-    def _clean_up_response_text(self, response_text):
-        lines = []
-        for line in response_text.splitlines():
-            line = line.rstrip()
-            if line:
-                lines.append(line)
-        return '\n'.join(lines)
-
-    def _request_cas_response(self, url):
+    def _perform_get(self, url):
         try:
             response = requests.get(url, verify=self.verify_certificates)
+            return response.text
+        except requests.HTTPError:
+            return None
+
+    def _perform_post(self, url):
+        try:
+            response = requests.post(url, verify=self.verify_certificates)
             return response.text
         except requests.HTTPError:
             return None

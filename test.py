@@ -65,8 +65,8 @@ class TestCase(unittest.TestCase):
         self.assertEqual(response.response_type, 'noResponse')
 
     def test_perform_service_validate(self):
-        cas_client = CASClient('dummy.url')
-        cas_client._request_cas_response = lambda url: self.response_text
+        cas_client = CASClient('https://dummy.url')
+        cas_client._perform_get = lambda url: self.response_text
         response = cas_client.perform_service_validate(
             ticket='FOO',
             service_url='BAR',
@@ -84,25 +84,25 @@ class TestCase(unittest.TestCase):
         self.assertEqual(response.user, 'jott')
 
     def test_get_destroy_other_sessions_url(self):
-        cas_client = CASClient('dummy.url')
-        service_url = 'app.url'
+        cas_client = CASClient('https://dummy.url')
+        service_url = 'https://app.url'
         url = cas_client.get_destroy_other_sessions_url(service_url=service_url)
-        self.assertEqual(url, 'dummy.url/cas/destroy-other-sessions?service=app.url')
+        self.assertEqual(url, 'https://dummy.url/cas/destroy-other-sessions?service=https://app.url')
 
     def test_get_login_url(self):
-        cas_client = CASClient('dummy.url')
-        service_url = 'app.url'
+        cas_client = CASClient('https://dummy.url')
+        service_url = 'https://app.url'
         url = cas_client.get_login_url(service_url=service_url)
-        self.assertEqual(url, 'dummy.url/cas/login?service=app.url')
+        self.assertEqual(url, 'https://dummy.url/cas/login?service=https://app.url')
 
     def test_get_logout_url(self):
-        cas_client = CASClient('dummy.url')
-        service_url = 'app.url'
+        cas_client = CASClient('https://dummy.url')
+        service_url = 'https://app.url'
         url = cas_client.get_logout_url(service_url=service_url)
-        self.assertEqual(url, 'dummy.url/cas/logout?service=app.url')
+        self.assertEqual(url, 'https://dummy.url/cas/logout?service=https://app.url')
 
     def test_parse_logout_request(self):
-        cas_client = CASClient('dummy.url')
+        cas_client = CASClient('https://dummy.url')
         parsed_message = cas_client.parse_logout_request(self.slo_text)
         self.assertEqual(parsed_message, {
             'ID': '[RANDOM ID]',
@@ -114,7 +114,7 @@ class TestCase(unittest.TestCase):
         })
 
     def test_parse_logout_request_2(self):
-        cas_client = CASClient('dummy.url')
+        cas_client = CASClient('https://dummy.url')
         parsed_message = cas_client.parse_logout_request(self.slo_text_2)
         self.assertEqual(parsed_message, {
             'ID': '935a2d0c-4026-481e-be3d-20a1b2cdd553',
@@ -126,11 +126,11 @@ class TestCase(unittest.TestCase):
         })
 
     def test_get_auth_token_logic_url(self):
-        cas_client = CASClient('dummy.url')
+        cas_client = CASClient('https://dummy.url')
         auth_token_ticket = 'AT-1234'
         authenticator = 'my_company_ldap'
         username = 'my_user'
-        service_url = 'example.com'
+        service_url = 'https://example.com'
         private_key_filepath = 'test_private_key.pem'
         with open(private_key_filepath, 'r') as file_pointer:
             private_key = file_pointer.read()
