@@ -1,0 +1,5 @@
+[run]
+branch = True
+cover_pylib = False
+source =
+    cas_client

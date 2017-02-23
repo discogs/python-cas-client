@@ -1,4 +1,6 @@
 PyCrypto
+coverage
+coveralls
 requests
 six
 tox

@@ -1,0 +1,16 @@
+language: python
+
+sudo: false
+
+python:
+    - 2.7
+    - 3.5
+
+install:
+    - pip install -e .
+
+script:
+    tox -e $TRAVIS_PYTHON_VERSION
+
+after_success:
+    coveralls
