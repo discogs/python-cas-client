@@ -78,6 +78,36 @@ class CASClient(object):
         logging.debug('[CAS] Deleting session for ticket {}'.format(ticket))
         self.session_storage_adapter.delete(ticket)
 
+    def get_api_url(
+        self,
+        api_resource,
+        auth_token_ticket,
+        authenticator,
+        private_key,
+        service_url=None,
+        **kwargs
+        ):
+        '''
+        Build an auth-token-protected CAS API url.
+        '''
+        auth_token, auth_token_signature = self._build_auth_token_data(
+            auth_token_ticket,
+            authenticator,
+            private_key,
+            **kwargs
+            )
+        params = {
+            'at': auth_token,
+            'ats': auth_token_signature,
+            }
+        if service_url is not None:
+            params['service'] = service_url
+        url = '{}?{}'.format(
+            self._get_api_url(api_resource),
+            urlencode(params),
+            )
+        return url
+
     def get_auth_token_login_url(
         self,
         auth_token_ticket,
@@ -91,26 +121,13 @@ class CASClient(object):
 
         See https://github.com/rbCAS/CASino/wiki/Auth-Token-Login for details.
         '''
-        rsa_key = RSA.importKey(private_key)
-        signer = PKCS1_v1_5.new(rsa_key)
-
-        auth_token = json.dumps({
-            'authenticator': authenticator,
-            'username': username,
-            'ticket': auth_token_ticket,
-            })
-        if six.PY3:
-            auth_token = auth_token.encode('utf-8')
-
+        auth_token, auth_token_signature = self._build_auth_token_data(
+            auth_token_ticket,
+            authenticator,
+            private_key,
+            username=username,
+            )
         logging.debug('[CAS] AuthToken: {}'.format(auth_token))
-
-        digest = SHA256.new()
-        digest.update(auth_token)
-        auth_token = base64.b64encode(auth_token)
-
-        auth_token_signature = signer.sign(digest)
-        auth_token_signature = base64.b64encode(auth_token_signature)
-
         url = self._get_auth_token_login_url(
             auth_token=auth_token,
             auth_token_signature=auth_token_signature,
@@ -185,30 +202,6 @@ class CASClient(object):
         logging.debug('[CAS] Logout URL: {}'.format(url))
         return url
 
-    def perform_proxy(self, proxy_ticket):
-        '''
-        Fetch a response from the remote CAS `proxy` endpoint.
-        '''
-        url = self._get_proxy_url(ticket=proxy_ticket)
-        logging.debug('[CAS] Proxy URL: {}'.format(url))
-        return self._perform_cas_call(url, ticket=proxy_ticket)
-
-    def perform_proxy_validate(self, proxied_service_ticket):
-        '''
-        Fetch a response from the remote CAS `proxyValidate` endpoint.
-        '''
-        url = self._get_proxy_validate_url(ticket=proxied_service_ticket)
-        logging.debug('[CAS] ProxyValidate URL: {}'.format(url))
-        return self._perform_cas_call(url, ticket=proxied_service_ticket)
-
-    def perform_service_validate(self, ticket=None, service_url=None):
-        '''
-        Fetch a response from the remote CAS `serviceValidate` endpoint.
-        '''
-        url = self._get_service_validate_url(ticket, service_url=service_url)
-        logging.debug('[CAS] ServiceValidate URL: {}'.format(url))
-        return self._perform_cas_call(url, ticket=ticket)
-
     def parse_logout_request(self, message_text):
         '''
         Parse the contents of a CAS `LogoutRequest` XML message.
@@ -256,6 +249,58 @@ class CASClient(object):
             ))
         return result
 
+    def perform_api_request(
+        self,
+        api_resource,
+        auth_token_ticket,
+        authenticator,
+        private_key,
+        method='POST',
+        service_url=None,
+        **kwargs
+        ):
+        '''
+        Perform an auth-token-protected request against a CAS API endpoint.
+        '''
+        assert method in ('GET', 'POST')
+        url = self.get_api_url(
+            api_resource,
+            auth_token_ticket,
+            authenticator,
+            private_key,
+            service_url=None,
+            **kwargs
+            )
+        if method == 'GET':
+            response = self._perform_get(url)
+        elif method == 'POST':
+            response = self._perform_post(url)
+        return response
+
+    def perform_proxy(self, proxy_ticket):
+        '''
+        Fetch a response from the remote CAS `proxy` endpoint.
+        '''
+        url = self._get_proxy_url(ticket=proxy_ticket)
+        logging.debug('[CAS] Proxy URL: {}'.format(url))
+        return self._perform_cas_call(url, ticket=proxy_ticket)
+
+    def perform_proxy_validate(self, proxied_service_ticket):
+        '''
+        Fetch a response from the remote CAS `proxyValidate` endpoint.
+        '''
+        url = self._get_proxy_validate_url(ticket=proxied_service_ticket)
+        logging.debug('[CAS] ProxyValidate URL: {}'.format(url))
+        return self._perform_cas_call(url, ticket=proxied_service_ticket)
+
+    def perform_service_validate(self, ticket=None, service_url=None):
+        '''
+        Fetch a response from the remote CAS `serviceValidate` endpoint.
+        '''
+        url = self._get_service_validate_url(ticket, service_url=service_url)
+        logging.debug('[CAS] ServiceValidate URL: {}'.format(url))
+        return self._perform_cas_call(url, ticket=ticket)
+
     def session_exists(self, ticket):
         '''
         Test if a session records exists for a service ticket.
@@ -267,6 +312,30 @@ class CASClient(object):
 
     ### PRIVATE METHODS ###
 
+    def _build_auth_token_data(
+        self,
+        auth_token_ticket,
+        authenticator,
+        private_key,
+        **kwargs
+        ):
+        auth_token = dict(
+            authenticator=authenticator,
+            ticket=auth_token_ticket,
+            **kwargs
+            )
+        auth_token = json.dumps(auth_token, sort_keys=True)
+        if six.PY3:
+            auth_token = auth_token.encode('utf-8')
+        digest = SHA256.new()
+        digest.update(auth_token)
+        auth_token = base64.b64encode(auth_token)
+        rsa_key = RSA.importKey(private_key)
+        signer = PKCS1_v1_5.new(rsa_key)
+        auth_token_signature = signer.sign(digest)
+        auth_token_signature = base64.b64encode(auth_token_signature)
+        return auth_token, auth_token_signature
+
     def _clean_up_response_text(self, response_text):
         lines = []
         for line in response_text.splitlines():
@@ -275,13 +344,17 @@ class CASClient(object):
                 lines.append(line)
         return '\n'.join(lines)
 
-    def _get_auth_token_tickets_url(self):
-        template = '{server_url}{auth_prefix}/api/auth_token_tickets'
+    def _get_api_url(self, api_resource):
+        template = '{server_url}{auth_prefix}/api/{api_resource}'
         url = template.format(
+            api_resource=api_resource,
             auth_prefix=self.auth_prefix,
             server_url=self.server_url,
             )
         return url
+
+    def _get_auth_token_tickets_url(self):
+        return self._get_api_url('auth_token_tickets')
 
     def _get_auth_token_login_url(self, auth_token, auth_token_signature, service_url):
         template = '{server_url}{auth_prefix}/authTokenLogin?{query_string}'
