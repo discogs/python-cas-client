@@ -3,7 +3,8 @@ include LICENSE
 include requirements.txt
 include setup.py
 include MANIFEST.in
-include test*
+include tests/*
 include tox.ini
+include pytest.ini
 recursive-include cas_client *
 recursive-exclude cas_client *.pyc
