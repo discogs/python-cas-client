@@ -35,6 +35,7 @@ class CASClient(object):
         proxy_callback=None,
         verify_certificates=False,
         session_storage_adapter=None,
+        headers=None,
         ):
         self._auth_prefix = auth_prefix
         self._proxy_callback = proxy_callback
@@ -43,16 +44,17 @@ class CASClient(object):
         self._service_url = service_url
         self._session_storage_adapter = session_storage_adapter
         self._verify_certificates = bool(verify_certificates)
+        self._headers = headers
 
     ### PUBLIC METHODS ###
 
-    def acquire_auth_token_ticket(self):
+    def acquire_auth_token_ticket(self, headers=None):
         '''
         Acquire an auth token from the CAS server.
         '''
         logging.debug('[CAS] Acquiring Auth token ticket')
         url = self._get_auth_token_tickets_url()
-        text = self._perform_post(url)
+        text = self._perform_post(url, headers=headers)
         auth_token_ticket = json.loads(text)['ticket']
         logging.debug('[CAS] Acquire Auth token ticket: {}'.format(
             auth_token_ticket))
@@ -257,6 +259,7 @@ class CASClient(object):
         private_key,
         method='POST',
         service_url=None,
+        headers=None,
         **kwargs
         ):
         '''
@@ -272,34 +275,47 @@ class CASClient(object):
             **kwargs
             )
         if method == 'GET':
-            response = self._perform_get(url)
+            response = self._perform_get(url, headers=headers)
         elif method == 'POST':
-            response = self._perform_post(url)
+            response = self._perform_post(url, headers=headers)
         return response
 
-    def perform_proxy(self, proxy_ticket):
+    def perform_proxy(self, proxy_ticket, headers=None):
         '''
         Fetch a response from the remote CAS `proxy` endpoint.
         '''
         url = self._get_proxy_url(ticket=proxy_ticket)
         logging.debug('[CAS] Proxy URL: {}'.format(url))
-        return self._perform_cas_call(url, ticket=proxy_ticket)
+        return self._perform_cas_call(
+            url,
+            ticket=proxy_ticket,
+            headers=headers,
+            )
 
-    def perform_proxy_validate(self, proxied_service_ticket):
+    def perform_proxy_validate(self, proxied_service_ticket, headers=None):
         '''
         Fetch a response from the remote CAS `proxyValidate` endpoint.
         '''
         url = self._get_proxy_validate_url(ticket=proxied_service_ticket)
         logging.debug('[CAS] ProxyValidate URL: {}'.format(url))
-        return self._perform_cas_call(url, ticket=proxied_service_ticket)
+        return self._perform_cas_call(
+            url,
+            ticket=proxied_service_ticket,
+            headers=headers,
+            )
 
-    def perform_service_validate(self, ticket=None, service_url=None):
+    def perform_service_validate(
+        self,
+        ticket=None,
+        service_url=None,
+        headers=None,
+        ):
         '''
         Fetch a response from the remote CAS `serviceValidate` endpoint.
         '''
         url = self._get_service_validate_url(ticket, service_url=service_url)
         logging.debug('[CAS] ServiceValidate URL: {}'.format(url))
-        return self._perform_cas_call(url, ticket=ticket)
+        return self._perform_cas_call(url, ticket=ticket, headers=headers)
 
     def session_exists(self, ticket):
         '''
@@ -405,10 +421,10 @@ class CASClient(object):
             url = '{url}&pgtUrl={proxy_url}'.format(url, self.proxy_url)
         return url
 
-    def _perform_cas_call(self, url, ticket):
+    def _perform_cas_call(self, url, ticket, headers=None):
         if ticket is not None:
             logging.debug('[CAS] Requesting Ticket Validation')
-            response_text = self._perform_get(url)
+            response_text = self._perform_get(url, headers=headers)
             response_text = self._clean_up_response_text(response_text)
             if response_text:
                 logging.debug('[CAS] Response:\n{}'.format(response_text))
@@ -416,21 +432,31 @@ class CASClient(object):
         logging.debug('[CAS] Response: None')
         return None
 
-    def _perform_get(self, url):
+    def _perform_get(self, url, headers=None):
+        headers = headers or self.headers
         try:
-            response = requests.get(url, verify=self.verify_certificates)
+            response = requests.get(
+                url,
+                verify=self.verify_certificates,
+                headers=headers,
+                )
             return response.text
         except requests.HTTPError:
             return None
 
-    def _perform_post(self, url):
+    def _perform_post(self, url, headers=None):
+        headers = headers or self.headers
         try:
-            response = requests.post(url, verify=self.verify_certificates)
+            response = requests.post(
+                url,
+                verify=self.verify_certificates,
+                headers=headers,
+                )
             return response.text
         except requests.HTTPError:
             return None
 
-    ### PUBLIC METHODS ###
+    ### PUBLIC PROPERTIES ###
 
     @property
     def auth_prefix(self):
@@ -438,6 +464,10 @@ class CASClient(object):
         The CAS client's auth prefix. Typically "/cas".
         '''
         return self._auth_prefix
+
+    @property
+    def headers(self):
+        return self._headers
 
     @property
     def proxy_callback(self):
