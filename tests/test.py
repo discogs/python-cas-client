@@ -1,10 +1,15 @@
 # -*- encoding: utf-8 -*-
+import os
 import unittest
 from cas_client import CASClient, CASResponse
 try:
     from urlparse import parse_qs
 except ImportError:
     from urllib.parse import parse_qs
+try:
+    import mock
+except ImportError:
+    from unittest import mock
 
 
 class TestCase(unittest.TestCase):
@@ -49,6 +54,11 @@ class TestCase(unittest.TestCase):
     </samlp:LogoutRequest>
     """
 
+    private_key_filepath = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)),
+        'test_private_key.pem',
+        )
+
     def test_success(self):
         response = CASResponse(self.response_text)
         self.assertTrue(response.success)
@@ -70,11 +80,13 @@ class TestCase(unittest.TestCase):
 
     def test_perform_service_validate(self):
         cas_client = CASClient('https://dummy.url')
-        cas_client._perform_get = lambda url: self.response_text
-        response = cas_client.perform_service_validate(
-            ticket='FOO',
-            service_url='BAR',
-            )
+        assert not cas_client.headers
+        with mock.patch('cas_client.CASClient._perform_get') as m:
+            m.return_value = self.response_text
+            response = cas_client.perform_service_validate(
+                ticket='FOO',
+                service_url='BAR',
+                )
         self.assertTrue(response.success)
         self.assertEqual(response.attributes, {
             u'i2a2characteristics': u'0,3592,2000',
@@ -86,6 +98,43 @@ class TestCase(unittest.TestCase):
         })
         self.assertEqual(response.response_type, 'authenticationSuccess')
         self.assertEqual(response.user, 'jott')
+
+    def test_perform_service_validate_headers_call(self):
+        class MockResponse(object):
+            text = self.response_text
+
+        cas_client = CASClient('https://dummy.url')
+        assert not cas_client.headers
+        with mock.patch('requests.get') as m:
+            m.return_value = MockResponse()
+            cas_client.perform_service_validate(
+                ticket='FOO',
+                service_url='BAR',
+                headers={'baz': 'quux'},
+                )
+        m.assert_called_with(
+            'https://dummy.url/cas/serviceValidate?ticket=FOO&service=BAR',
+            headers={'baz': 'quux'},
+            verify=False,
+            )
+
+    def test_perform_service_validate_headers_init(self):
+        class MockResponse(object):
+            text = self.response_text
+
+        cas_client = CASClient('https://dummy.url', headers={'baz': 'quux'})
+        assert cas_client.headers == {'baz': 'quux'}
+        with mock.patch('requests.get') as m:
+            m.return_value = MockResponse()
+            cas_client.perform_service_validate(
+                ticket='FOO',
+                service_url='BAR',
+                )
+        m.assert_called_with(
+            'https://dummy.url/cas/serviceValidate?ticket=FOO&service=BAR',
+            headers={'baz': 'quux'},
+            verify=False,
+            )
 
     def test_get_destroy_other_sessions_url(self):
         cas_client = CASClient('https://dummy.url')
@@ -134,8 +183,7 @@ class TestCase(unittest.TestCase):
         api_resource = 'do_something_useful'
         auth_token_ticket = 'ATT-1234'
         authenticator = 'my_company_ldap'
-        private_key_filepath = 'test_private_key.pem'
-        with open(private_key_filepath, 'r') as file_pointer:
+        with open(self.private_key_filepath, 'r') as file_pointer:
             private_key = file_pointer.read()
         service_url = 'https://example.com'
         kwargs = {
@@ -184,8 +232,7 @@ class TestCase(unittest.TestCase):
         authenticator = 'my_company_ldap'
         username = 'my_user'
         service_url = 'https://example.com'
-        private_key_filepath = 'test_private_key.pem'
-        with open(private_key_filepath, 'r') as file_pointer:
+        with open(self.private_key_filepath, 'r') as file_pointer:
             private_key = file_pointer.read()
         url = cas_client.get_auth_token_login_url(
             auth_token_ticket=auth_token_ticket,
@@ -220,3 +267,48 @@ class TestCase(unittest.TestCase):
                 ),
             'service': 'https://example.com',
             }
+
+    def test_acquire_auth_token_ticket_no_headers(self):
+        class MockResponse(object):
+            text = '{"ticket": "FOO"}'
+
+        cas_client = CASClient('https://dummy.url')
+        assert not cas_client.headers
+        with mock.patch('requests.post') as m:
+            m.return_value = MockResponse()
+            cas_client.acquire_auth_token_ticket()
+        m.assert_called_with(
+            'https://dummy.url/cas/api/auth_token_tickets',
+            headers=None,
+            verify=False,
+            )
+
+    def test_acquire_auth_token_ticket_headers_call(self):
+        class MockResponse(object):
+            text = '{"ticket": "FOO"}'
+
+        cas_client = CASClient('https://dummy.url')
+        assert not cas_client.headers
+        with mock.patch('requests.post') as m:
+            m.return_value = MockResponse()
+            cas_client.acquire_auth_token_ticket(headers={'baz': 'quux'})
+        m.assert_called_with(
+            'https://dummy.url/cas/api/auth_token_tickets',
+            headers={'baz': 'quux'},
+            verify=False,
+            )
+
+    def test_acquire_auth_token_ticket_headers_init(self):
+        class MockResponse(object):
+            text = '{"ticket": "FOO"}'
+
+        cas_client = CASClient('https://dummy.url', headers={'baz': 'quux'})
+        assert cas_client.headers == {'baz': 'quux'}
+        with mock.patch('requests.post') as m:
+            m.return_value = MockResponse()
+            cas_client.acquire_auth_token_ticket()
+        m.assert_called_with(
+            'https://dummy.url/cas/api/auth_token_tickets',
+            headers={'baz': 'quux'},
+            verify=False,
+            )
