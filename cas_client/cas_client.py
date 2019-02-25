@@ -300,7 +300,6 @@ class CASClient(object):
         '''
         url = self._get_proxy_validate_url(ticket=proxied_service_ticket)
         logging.debug('[CAS] ProxyValidate URL: {}'.format(url))
-        raise Exception
         return self._perform_cas_call(
             url,
             ticket=proxied_service_ticket,
@@ -513,7 +512,10 @@ class CASClient(object):
     @property
     def validate_url(self):
         '''
-        The CAS client's validation URL
+        The CAS client's validation URL.
+
+        Defaults to the server_url, should only be set if using a separate
+        hostname for internal calls to /validateService.
         '''
         return self._validate_url
 
