@@ -87,6 +87,36 @@ class TestCase(unittest.TestCase):
                 ticket='FOO',
                 service_url='BAR',
                 )
+            m.assert_called_once_with(
+                'https://dummy.url/cas/serviceValidate?ticket=FOO&service=BAR',
+                headers=None
+            )
+        self.assertTrue(response.success)
+        self.assertEqual(response.attributes, {
+            u'i2a2characteristics': u'0,3592,2000',
+            u'puid': u'0012345678',
+            u'firstname': u'Jeffrey A',
+            u'lastname': u'Ott',
+            u'fullname': u'Jeffrey A Ott',
+            u'email': u'jott@purdue.edu',
+        })
+        self.assertEqual(response.response_type, 'authenticationSuccess')
+        self.assertEqual(response.user, 'jott')
+
+    def test_perform_service_validate_separate_url(self):
+        cas_client = CASClient(
+            'https://dummy.url', validate_url='https://validate.url')
+        assert not cas_client.headers
+        with mock.patch('cas_client.CASClient._perform_get') as m:
+            m.return_value = self.response_text
+            response = cas_client.perform_service_validate(
+                ticket='FOO',
+                service_url='BAR',
+                )
+            m.assert_called_once_with(
+                'https://validate.url/cas/serviceValidate?ticket=FOO&service=BAR',
+                headers=None
+            )
         self.assertTrue(response.success)
         self.assertEqual(response.attributes, {
             u'i2a2characteristics': u'0,3592,2000',
