@@ -30,6 +30,7 @@ class CASClient(object):
         self,
         server_url,
         service_url=None,
+        validate_url=None,
         auth_prefix='/cas',
         proxy_url=None,
         proxy_callback=None,
@@ -42,6 +43,7 @@ class CASClient(object):
         self._proxy_url = proxy_url
         self._server_url = server_url
         self._service_url = service_url
+        self._validate_url = validate_url or server_url
         self._session_storage_adapter = session_storage_adapter
         self._verify_certificates = bool(verify_certificates)
         self._headers = headers
@@ -398,22 +400,22 @@ class CASClient(object):
         return url
 
     def _get_proxy_validate_url(self, ticket):
-        template = '{server_url}{auth_prefix}/proxy?'
+        template = '{validate_url}{auth_prefix}/proxy?'
         template += 'ticket={ticket}&service={proxy_callback}'
         url = template.format(
             auth_prefix=self.auth_prefix,
             proxy_callback=self.proxy_callback,
-            server_url=self.server_url,
+            validate=self.validate_url,
             ticket=ticket,
             )
         return url
 
     def _get_service_validate_url(self, ticket, service_url=None):
-        template = '{server_url}{auth_prefix}/serviceValidate?'
+        template = '{validate_url}{auth_prefix}/serviceValidate?'
         template += 'ticket={ticket}&service={service_url}'
         url = template.format(
             auth_prefix=self.auth_prefix,
-            server_url=self.server_url,
+            validate_url=self.validate_url,
             service_url=service_url or self.service_url,
             ticket=ticket,
             )
@@ -506,6 +508,16 @@ class CASClient(object):
         The CAS client's session storage adapter for maintaining session state.
         '''
         return self._session_storage_adapter
+
+    @property
+    def validate_url(self):
+        '''
+        The CAS client's validation URL.
+
+        Defaults to the server_url, should only be set if using a separate
+        hostname for internal calls to /validateService.
+        '''
+        return self._validate_url
 
     @property
     def verify_certificates(self):
