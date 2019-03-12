@@ -90,7 +90,7 @@ class CASClient(object):
         private_key,
         service_url=None,
         **kwargs
-        ):
+    ):
         '''
         Build an auth-token-protected CAS API url.
         '''
@@ -119,7 +119,7 @@ class CASClient(object):
         private_key,
         service_url,
         username,
-        ):
+    ):
         '''
         Build an auth token login URL.
 
@@ -143,7 +143,6 @@ class CASClient(object):
     def get_destroy_other_sessions_url(self, service_url=None):
         '''
         Get the URL for a remote CAS `destroy-other-sessions` endpoint.
-
         ::
 
             >>> from cas_client import CASClient
@@ -158,8 +157,9 @@ class CASClient(object):
             server_url=self.server_url,
             auth_prefix=self.auth_prefix,
             service_url=service_url or self.service_url,
-            )
-        logging.debug('[CAS] Login URL: {}'.format(url))
+        )
+
+        logging.debug('[CAS] Destroy Sessions URL: {}'.format(url))
         return url
 
     def get_login_url(self, service_url=None):
@@ -255,31 +255,20 @@ class CASClient(object):
 
     def perform_api_request(
         self,
-        api_resource,
-        auth_token_ticket,
-        authenticator,
-        private_key,
+        url,
         method='POST',
-        service_url=None,
         headers=None,
+        body=None,
         **kwargs
-        ):
+    ):
         '''
         Perform an auth-token-protected request against a CAS API endpoint.
         '''
         assert method in ('GET', 'POST')
-        url = self.get_api_url(
-            api_resource,
-            auth_token_ticket,
-            authenticator,
-            private_key,
-            service_url=None,
-            **kwargs
-            )
         if method == 'GET':
-            response = self._perform_get(url, headers=headers)
+            response = self._perform_get(url, headers=headers, **kwargs)
         elif method == 'POST':
-            response = self._perform_post(url, headers=headers)
+            response = self._perform_post(url, headers=headers, data=body, **kwargs)
         return response
 
     def perform_proxy(self, proxy_ticket, headers=None):
@@ -336,7 +325,7 @@ class CASClient(object):
         authenticator,
         private_key,
         **kwargs
-        ):
+    ):
         auth_token = dict(
             authenticator=authenticator,
             ticket=auth_token_ticket,
@@ -434,25 +423,28 @@ class CASClient(object):
         logging.debug('[CAS] Response: None')
         return None
 
-    def _perform_get(self, url, headers=None):
+    def _perform_get(self, url, headers=None, **kwargs):
         headers = headers or self.headers
         try:
             response = requests.get(
                 url,
                 verify=self.verify_certificates,
                 headers=headers,
+                **kwargs
                 )
             return response.text
         except requests.HTTPError:
             return None
 
-    def _perform_post(self, url, headers=None):
+    def _perform_post(self, url, headers=None, data=None, **kwargs):
         headers = headers or self.headers
         try:
             response = requests.post(
                 url,
                 verify=self.verify_certificates,
                 headers=headers,
+                data=data,
+                **kwargs
                 )
             return response.text
         except requests.HTTPError:

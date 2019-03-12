@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+import json
 import os
 import unittest
 from cas_client import CASClient, CASResponse
@@ -169,8 +170,13 @@ class TestCase(unittest.TestCase):
     def test_get_destroy_other_sessions_url(self):
         cas_client = CASClient('https://dummy.url')
         service_url = 'https://app.url'
-        url = cas_client.get_destroy_other_sessions_url(service_url=service_url)
-        self.assertEqual(url, 'https://dummy.url/cas/destroy-other-sessions?service=https://app.url')
+        url = cas_client.get_destroy_other_sessions_url(
+            service_url=service_url
+        )
+        self.assertEqual(
+            url,
+            'https://dummy.url/cas/destroy-other-sessions?service=https://app.url'
+        )
 
     def test_get_login_url(self):
         cas_client = CASClient('https://dummy.url')
@@ -209,25 +215,7 @@ class TestCase(unittest.TestCase):
         })
 
     def test_get_api_url(self):
-        cas_client = CASClient('https://dummy.url')
-        api_resource = 'do_something_useful'
-        auth_token_ticket = 'ATT-1234'
-        authenticator = 'my_company_ldap'
-        with open(self.private_key_filepath, 'r') as file_pointer:
-            private_key = file_pointer.read()
-        service_url = 'https://example.com'
-        kwargs = {
-            'and': 'another_thing',
-            'you': 'should_know',
-            }
-        url = cas_client.get_api_url(
-            api_resource=api_resource,
-            auth_token_ticket=auth_token_ticket,
-            authenticator=authenticator,
-            private_key=private_key,
-            service_url=service_url,
-            **kwargs
-            )
+        url = self._get_test_api_url()
         query_string = url.partition('?')[-1]
         query_parameters = {
             key: value[0]
@@ -309,6 +297,7 @@ class TestCase(unittest.TestCase):
             cas_client.acquire_auth_token_ticket()
         m.assert_called_with(
             'https://dummy.url/cas/api/auth_token_tickets',
+            data=None,
             headers=None,
             verify=False,
             )
@@ -324,6 +313,7 @@ class TestCase(unittest.TestCase):
             cas_client.acquire_auth_token_ticket(headers={'baz': 'quux'})
         m.assert_called_with(
             'https://dummy.url/cas/api/auth_token_tickets',
+            data=None,
             headers={'baz': 'quux'},
             verify=False,
             )
@@ -339,6 +329,60 @@ class TestCase(unittest.TestCase):
             cas_client.acquire_auth_token_ticket()
         m.assert_called_with(
             'https://dummy.url/cas/api/auth_token_tickets',
+            data=None,
             headers={'baz': 'quux'},
             verify=False,
             )
+
+    def _get_test_api_url(self):
+        cas_client = CASClient('https://dummy.url')
+        api_resource = 'do_something_useful'
+        auth_token_ticket = 'ATT-1234'
+        authenticator = 'my_company_ldap'
+        with open(self.private_key_filepath, 'r') as file_pointer:
+            private_key = file_pointer.read()
+        service_url = 'https://example.com'
+        kwargs = {
+            'and': 'another_thing',
+            'you': 'should_know',
+        }
+        return cas_client.get_api_url(
+            api_resource=api_resource,
+            auth_token_ticket=auth_token_ticket,
+            authenticator=authenticator,
+            private_key=private_key,
+            service_url=service_url,
+            **kwargs
+        )
+
+    def test_perform_api_request(self):
+        class MockResponse(object):
+            text = '{"something": "useful"}'
+            success = True
+        cas_client = CASClient('https://dummy.url')
+        url = self._get_test_api_url()
+        service_ticket = 'ST-14600760351898-0B3lSFt2jOWSbgQ377B4CtbD9uq0MXR9kG23vAuH'
+
+        assert not cas_client.headers
+        with mock.patch('cas_client.CASClient._perform_post') as m:
+            m.return_value = MockResponse()
+            response = cas_client.perform_api_request(
+                url,
+                method='POST',
+                body={'st': service_ticket},
+                timeout=45
+            )
+            m.assert_called_once_with(
+                url,
+                data={'st': service_ticket},
+                headers=None,
+                timeout=45
+            )
+        print(response)
+        self.assertTrue(response.success)
+        self.assertEqual(json.loads(response.text), {
+            'something': 'useful'
+        })
+
+
+
