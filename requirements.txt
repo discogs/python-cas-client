@@ -1,4 +1,4 @@
-PyCrypto
+pycryptodome
 requests
 six
 tox

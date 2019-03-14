@@ -26,7 +26,7 @@ setuptools.setup(
     description='A Python CAS client',
     include_package_data=True,
     install_requires=[
-        'PyCrypto',
+        'pycryptodome',
         'requests',
         'six',
         'tox',
